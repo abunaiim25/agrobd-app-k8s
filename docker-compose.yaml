@@ -1,0 +1,46 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: agrobd
+    depends_on:
+      - mysql5
+    environment:
+      DB_CONNECTION: mysql
+      DB_HOST: mysql5
+      DB_PORT: 3306
+      DB_DATABASE: agrobd
+      DB_USERNAME: agrobd
+      DB_PASSWORD: password123
+      APP_ENV: local
+      APP_DEBUG: "true"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./storage:/var/www/html/storage
+      - ./bootstrap/cache:/var/www/html/bootstrap/cache
+    # command: >
+    #   sh -c "php artisan migrate --force &&
+    #          apache2-foreground"
+    restart: unless-stopped
+
+  mysql5:
+    image: mysql:5.7
+    container_name: mysql5
+    environment:
+      MYSQL_DATABASE: agrobd
+      MYSQL_USER: agrobd
+      MYSQL_PASSWORD: password123
+      MYSQL_ROOT_PASSWORD: root_password
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    restart: unless-stopped
+
+volumes:
+  mysql_data:
