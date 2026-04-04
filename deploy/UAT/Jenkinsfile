@@ -1,0 +1,89 @@
+pipeline {
+    agent any
+    environment {
+        REGISTRY="img-regv2.oss.net.bd"
+        dockerRegistryCredential='img-regv2.oss.net.bd'
+        DOCKER_REGISTRY_URL="https://$REGISTRY"
+      	NAMESPACE="ebs-v2"
+        IMAGE_CREATED_BY="jenkins"
+        IMAGE_NAME="ebs-v2"
+        HARBOR_PROJECT="supportv2"
+ 
+        GIT_TAG=sh(returnStdout: true, script: '''        
+            echo $(git describe --tags)
+        ''').trim()
+        APP_URL= 'ebs-v2'
+
+
+        DEPLOYMENT_ENV_VERSION="$NAMESPACE"
+        IMAGE_VERSION="$BUILD_NUMBER-$IMAGE_CREATED_BY-$DEPLOYMENT_ENV_VERSION"
+        DOCKER_TAG="$REGISTRY/$HARBOR_PROJECT/$IMAGE_NAME:$IMAGE_VERSION"
+        DEPLOYMENT_DIRECTORY="./Deploy/UAT"
+
+	    }
+
+    post {
+    always {
+        echo 'Discord Notification.'
+        discordSend description: "$APP_URL", scmWebUrl: 'https://codelab.ba-systems.com/mobile-apps/icommune-portfolio-website.git', showChangeset: true, 
+        footer: "message: *${currentBuild.currentResult}:* Job ${env.JOB_NAME} build ${env.BUILD_NUMBER} \n More info at: ${env.BUILD_URL}", 
+        webhookURL: 'https://discord.com/api/webhooks/1447092846497894451/BUvoVGhGQnBfGoy20hLfaXrmm6u-TTx05rjnsfBs6VJaifk85oIzQDaLeID6j4sdZG_g'
+        }   
+    } 
+
+
+
+    stages {
+
+     stage('Init') {
+            steps {
+                sh '''
+                COMMIT_ID=$(git log -1|head -1|awk -F ' ' ' {print $NF}')
+                echo "........result of commit .... $COMMIT_ID"
+                '''
+            }
+        }
+      
+     stage('Building Docker image') { 
+            steps { 
+                script { 
+                    dockerImage = docker.build("$DOCKER_TAG", "-f ./Dockerfile .")
+                }
+                sh '''
+                docker images|grep $IMAGE_NAME
+                '''
+            } 
+        }
+
+
+
+
+      stage('Push docker image') {
+            steps{
+                script {
+                    docker.withRegistry( "$DOCKER_REGISTRY_URL", dockerRegistryCredential ) {
+                        dockerImage.push()
+                        sh "docker images|grep $IMAGE_NAME"
+                    }
+                    
+                }
+            }
+        }
+     
+
+     stage('Deleted image After upload to Registry') {
+            steps {
+                echo "Cleaning local docker registry $DOCKER_TAG image"
+                sh "docker rmi $DOCKER_TAG"
+            }
+        }
+     stage('Trigger ManifestUpdate') {
+            steps{
+                echo "triggering updatemanifestjob"
+                build job: 'EBS-V2-Deploy', parameters: [
+                    string(name: 'DOCKER_TAG', value: env.DOCKER_TAG),
+                    ]
+            }
+        }
+    }
+}
