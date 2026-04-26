@@ -2,15 +2,16 @@ pipeline {
     agent any
     environment {
         //REGISTRY="img-regv2.oss.net.bd"
-        REGISTRY="192.168.174.160"
+        REGISTRY="docker.io"
         //dockerRegistryCredential='img-regv2.oss.net.bd'
-        dockerRegistryCredential='192.168.174.160'
+        dockerRegistryCredential='docker-hub-credentials-id'
         //DOCKER_REGISTRY_URL="https://$REGISTRY"
-        DOCKER_REGISTRY_URL="http://$REGISTRY"
+        DOCKER_REGISTRY_URL="https://index.docker.io/v1/"
       	NAMESPACE="agrobd"
         IMAGE_CREATED_BY="jenkins"
-        IMAGE_NAME="agrobd"
-        HARBOR_PROJECT="supportv2"
+        //IMAGE_NAME="agrobd"
+        IMAGE_NAME="mdnaiim/agrobd"
+        HARBOR_PROJECT="agrobd"
 
         GIT_TAG=sh(returnStdout: true, script: '''
             echo $(git describe --tags)
@@ -20,7 +21,8 @@ pipeline {
 
         DEPLOYMENT_ENV_VERSION="$NAMESPACE"
         IMAGE_VERSION="$BUILD_NUMBER-$IMAGE_CREATED_BY-$DEPLOYMENT_ENV_VERSION"
-        DOCKER_TAG="$REGISTRY/$HARBOR_PROJECT/$IMAGE_NAME:$IMAGE_VERSION"
+        //DOCKER_TAG="$REGISTRY/$HARBOR_PROJECT/$IMAGE_NAME:$IMAGE_VERSION"
+        DOCKER_TAG="$IMAGE_NAME:$IMAGE_VERSION"
         DEPLOYMENT_DIRECTORY="./Deploy/DEV"
 
 	    }
@@ -80,10 +82,11 @@ pipeline {
                 sh "docker rmi $DOCKER_TAG"
             }
         }
+
      stage('Trigger ManifestUpdate') {
             steps{
                 echo "triggering updatemanifestjob"
-                build job: 'EBS-V2-Deploy', parameters: [
+                build job: 'Agrobd-Deploy', parameters: [
                     string(name: 'DOCKER_TAG', value: env.DOCKER_TAG),
                     ]
             }
